@@ -34,7 +34,7 @@ for i in p['PLAYER']:
 playerStatsColumns = playerlist['Russell Westbrook']['STATS'].columns
 playerDefStatsColumns = playerlist['Russell Westbrook']['DEFSTATS'].columns
 playerGameLogsColumns = playerlist['Russell Westbrook']['GAMELOGS'].columns
-print 'Functions: \n  getPlayerStats(player) \n  getPlayerDefStats(player) \n  getPlayerGamelogs(player)'
+
 def getPlayerStats(player, cols = playerStatsColumns):
     if not player in playerlist.keys():
         return 'Thats not a valid Player'
@@ -67,7 +67,7 @@ for i in t['TEAM']:
 
 teamStatsColumns = teamlist['OKC']['STATS'].columns
 teamGameLogsColumns = teamlist['OKC']['GAMELOGS'].columns
-print '  getTeamStats(team) \n  getTeamGamelogs(team)'
+
 def getTeamStats(team, cols = teamStatsColumns):
     if not team in teamlist.keys():
         return 'Thats not a valid team'
@@ -81,13 +81,14 @@ def getTeamGamelogs(team, cols = teamGameLogsColumns):
 
 p['WIN%'] = p['W']/p['L']*100
 pwinratiocorr = pd.DataFrame(p.corr()['WIN%']).sort_values(by = 'WIN%', ascending = 0)
-print 'Plot against Win%: \n  plotPlayersWinper(var) \n  plotTeamsWinper(var)'
 def plotPlayersWinper(x):
     sns.lmplot(x, 'WIN%', p, palette='Set2')
 
 playerWLCorr = {}
+playerHACorr ={}
 for i in playerlist:
     a = []
+    a1 = []
     for j in playerGameLogsColumns[3:22]:
         b = getPlayerGamelogs(i, ['W/L',j]).sort_values(by = 'W/L', ascending=0)
         c = kendalltau(b['W/L'], b[j])
@@ -95,18 +96,31 @@ for i in playerlist:
         d = spearmanr(b['W/L'], b[j])
         d = d + (abs(d[0]),)
         a.append([j, c[0], c[2], c[1], d[0], d[2], d[1]])
+        b1 = getPlayerGamelogs(i, ['ARENA',j]).sort_values(by = 'ARENA', ascending=0)
+        c1 = kendalltau(b1['ARENA'], b1[j])
+        c1 = c1 + (abs(c1[0]),)
+        d1 = spearmanr(b1['ARENA'], b1[j])
+        d1 = d1 + (abs(d1[0]),)
+        a1.append([j, c1[0], c1[2], c1[1], d1[0], d1[2], d1[1]])
     a = pd.DataFrame(a)
     a.columns = ['STATVAR', 'W/Lktcorr', 'absktcorr', 'ktpval', 'W/Lsmcorr', 'abssmcorr', 'smpval']
+    a = a[a['ktpval'] < 0.05]
     b = a['absktcorr'].sum()
     c = a[a['W/Lktcorr'] > 0]
     c = c['W/Lktcorr'].sum()
     d = a[a['W/Lktcorr'] < 0]
     d = d['W/Lktcorr'].sum()
+    a1 = pd.DataFrame(a1)
+    a1.columns = ['STATVAR', 'ARENAktcorr', 'absktcorr', 'ktpval', 'ARENAsmcorr', 'abssmcorr', 'smpval']
+    a1 = a1[a1['ktpval'] < 0.05]
+    b1 = a1['absktcorr'].sum()
+    c1 = a1[a1['ARENAktcorr'] > 0]
+    c1 = c1['ARENAktcorr'].sum()
+    d1 = a1[a1['ARENAktcorr'] < 0]
+    d1 = d1['ARENAktcorr'].sum()
     playerWLCorr[i] = {'corrTable': a.sort_values(by='W/Lktcorr', ascending=0), 'impact': b, 'posimpact': c, 'negimpact': d}
-
-print 'Plot functions: \n  plotPlayerWFactors(player) \n  plotPlayerLFactors(player) \n  plotPlayerHomeFactors(player)'
-print '  plotPlayerWFactBox(player) \n  plotPlayerLFactBox(player)'
-
+    playerHACorr[i] = {'corrTable': a1.sort_values(by='ARENAktcorr', ascending=0), 'impact': b1, 'homeimpact': c1, 'awayimpact': d1}
+        
 def plotPlayerWFactors(x, size = 3):
     print x
     a = playerWLCorr[x]['corrTable'][:size]
@@ -137,8 +151,21 @@ def plotPlayerLFactors(x, size = 3):
 
 def plotPlayerHomeFactors(x, size = 3):
     print x
-    a = playerWLCorr[x]['corrTable']
-    a = a.sort_values(by = 'absktcorr', ascending = 0)[:3]
+    a = playerHACorr[x]['corrTable'][:3]
+    print a
+    a = list(a['STATVAR'])
+    a.append('ARENA')
+    g = sns.PairGrid(getPlayerGamelogs(x, a).sort_values(by = 'ARENA', ascending=0), hue = 'ARENA', palette='Set2',\
+                     hue_kws={'cmap':['Greens', 'Oranges']})
+    g.map_upper(plt.scatter)
+    g.map_diag(plt.hist)
+    g.map_lower(sns.kdeplot)
+    g.add_legend()
+    g.fig.suptitle(x, fontsize=20)
+
+def plotPlayerAwayFactors(x, size = 3):
+    print x
+    a = playerHACorr[x]['corrTable'][-3:]
     print a
     a = list(a['STATVAR'])
     a.append('ARENA')
@@ -184,8 +211,10 @@ for i in teamlist:
     teamWinPerCorr[i] = x.sort_values(by='WIN%', ascending=0)
 
 teamWLCorr = {}
+teamHACorr ={}
 for i in teamlist:
     a = []
+    a1 = []
     for j in teamGameLogsColumns[3:21]:
         b = getTeamGamelogs(i, ['W/L',j]).sort_values(by = 'W/L', ascending=0)
         c = kendalltau(b['W/L'], b[j])
@@ -193,17 +222,31 @@ for i in teamlist:
         d = spearmanr(b['W/L'], b[j])
         d = d + (abs(d[0]),)
         a.append([j, c[0], c[2], c[1], d[0], d[2], d[1]])
+        b1 = getTeamGamelogs(i, ['ARENA',j]).sort_values(by = 'ARENA', ascending=0)
+        c1 = kendalltau(b1['ARENA'], b1[j])
+        c1 = c1 + (abs(c1[0]),)
+        d1 = spearmanr(b1['ARENA'], b1[j])
+        d1 = d1 + (abs(d1[0]),)
+        a1.append([j, c1[0], c1[2], c1[1], d1[0], d1[2], d1[1]])
     a = pd.DataFrame(a)
     a.columns = ['STATVAR', 'W/Lktcorr', 'absktcorr', 'ktpval', 'W/Lsmcorr', 'abssmcorr', 'smpval']
+    a = a[a['ktpval'] < 0.05]
     b = a['absktcorr'].sum()
     c = a[a['W/Lktcorr'] > 0]
     c = c['W/Lktcorr'].sum()
     d = a[a['W/Lktcorr'] < 0]
     d = d['W/Lktcorr'].sum()
+    a1 = pd.DataFrame(a1)
+    a1.columns = ['STATVAR', 'ARENAktcorr', 'absktcorr', 'ktpval', 'ARENAsmcorr', 'abssmcorr', 'smpval']
+    a1 = a1[a1['ktpval'] < 0.05]
+    b1 = a1['absktcorr'].sum()
+    c1 = a1[a1['ARENAktcorr'] > 0]
+    c1 = c1['ARENAktcorr'].sum()
+    d1 = a1[a1['ARENAktcorr'] < 0]
+    d1 = d1['ARENAktcorr'].sum()
     teamWLCorr[i] = {'corrTable': a.sort_values(by='W/Lktcorr', ascending=0), 'impact': b, 'posimpact': c, 'negimpact': d}
-
-print '  plotTeamWFactors(team) \n  plotTeamLFactors(team) \n  plotTeamHomeFactors(team)'
-print '  plotTeamWFactBox(team) \n  plotTeamLFactBox(team)'
+    teamHACorr[i] = {'corrTable': a1.sort_values(by='ARENAktcorr', ascending=0), 'impact': b1, 'homeimpact': c1, 'awayimpact': d1}
+    
 def plotTeamWFactors(x, size = 3):
     print x 
     print 'RECORD: ' + teamlist[x]['RECORD']
@@ -237,8 +280,22 @@ def plotTeamLFactors(x, size = 3):
 def plotTeamHomeFactors(x, size = 3):
     print x 
     print 'RECORD: ' + teamlist[x]['RECORD']
-    a = teamWLCorr[x]['corrTable']
-    a = a.sort_values(by = 'absktcorr', ascending = 0)[:3]
+    a = teamHACorr[x]['corrTable'][:3]
+    print a
+    a = list(a['STATVAR'])
+    a.append('ARENA')
+    g = sns.PairGrid(getTeamGamelogs(x, a).sort_values(by = 'ARENA', ascending=0), hue = 'ARENA', palette='Set2',\
+                     hue_kws={'cmap':['Greens', 'Oranges']})
+    g.map_upper(plt.scatter)
+    g.map_diag(plt.hist)
+    g.map_lower(sns.kdeplot)
+    g.add_legend()
+    g.fig.suptitle(x, fontsize=20)
+
+def plotTeamAwayFactors(x, size = 3):
+    print x 
+    print 'RECORD: ' + teamlist[x]['RECORD']
+    a = teamHACorr[x]['corrTable'][-3:]
     print a
     a = list(a['STATVAR'])
     a.append('ARENA')
@@ -331,7 +388,7 @@ def rosterOrderbyHomeImpact(team):
     a = []
     for i in teamRoster[team]:
         try:
-            a.append([i, playerWLCorr[i]['impact']*getPlayerMins(i, var = 'HOME')])
+            a.append([i, playerHACorr[i]['homeimpact']*getPlayerMins(i, var = 'HOME')])
         except:
             continue
     return list(pd.DataFrame(a).sort_values(by = 1, ascending = 0)[0])
@@ -339,7 +396,7 @@ def rosterOrderbyAwayImpact(team):
     a = []
     for i in teamRoster[team]:
         try:
-            a.append([i, playerWLCorr[i]['impact']*getPlayerMins(i, var = 'AWAY')])
+            a.append([i, playerHACorr[i]['awayimpact']*getPlayerMins(i, var = 'AWAY')])
         except:
             continue
     return list(pd.DataFrame(a).sort_values(by = 1, ascending = 0)[0])
