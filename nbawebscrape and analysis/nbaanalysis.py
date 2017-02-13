@@ -79,6 +79,53 @@ def getTeamGamelogs(team, cols = teamGameLogsColumns):
     else:
         return teamlist[team]['GAMELOGS'][cols]
 
+    
+playergamelogs = []
+for i in playerlist.keys():
+    playergamelogs.append(getPlayerGamelogs(i))
+playergamelogs = pd.concat(playergamelogs)
+teamgamelogs = []
+for i in teamlist.keys():
+    teamgamelogs.append(getTeamGamelogs(i))
+teamgamelogs = pd.concat(teamgamelogs)
+
+def overallPcorr(WLorarena):
+    a = []
+    for j in playerGameLogsColumns[3:22]:
+        b = playergamelogs[[WLorarena, j]].sort_values(by = WLorarena, ascending=0)
+        c = kendalltau(b[WLorarena], b[j])
+        c = c + (abs(c[0]),)
+        d = spearmanr(b[WLorarena], b[j])
+        d = d + (abs(d[0]),)
+        a.append([j, c[0], c[2], c[1], d[0], d[2], d[1]])
+    a = pd.DataFrame(a)
+    a.columns = ['STATVAR', 'ktcorr', 'absktcorr', 'ktpval', 'smcorr', 'abssmcorr', 'smpval']
+    a = a[a['ktpval'] < 0.05]
+    b = a['absktcorr'].sum()
+    c = a[a['ktcorr'] > 0]
+    c = c['ktcorr'].sum()
+    d = a[a['ktcorr'] < 0]
+    d = d['ktcorr'].sum()
+    return {'corrTable': a.sort_values(by='ktcorr', ascending=0), 'impact': b, 'posimpact': c, 'negimpact': d}
+def overallTcorr(WLorarena):
+    a = []
+    for j in teamGameLogsColumns[3:21]:
+        b = teamgamelogs[[WLorarena, j]].sort_values(by = WLorarena, ascending=0)
+        c = kendalltau(b[WLorarena], b[j])
+        c = c + (abs(c[0]),)
+        d = spearmanr(b[WLorarena], b[j])
+        d = d + (abs(d[0]),)
+        a.append([j, c[0], c[2], c[1], d[0], d[2], d[1]])
+    a = pd.DataFrame(a)
+    a.columns = ['STATVAR', 'ktcorr', 'absktcorr', 'ktpval', 'smcorr', 'abssmcorr', 'smpval']
+    a = a[a['ktpval'] < 0.05]
+    b = a['absktcorr'].sum()
+    c = a[a['ktcorr'] > 0]
+    c = c['ktcorr'].sum()
+    d = a[a['ktcorr'] < 0]
+    d = d['ktcorr'].sum()
+    return {'corrTable': a.sort_values(by='ktcorr', ascending=0), 'impact': b, 'posimpact': c, 'negimpact': d}
+
 p['WIN%'] = p['W']/p['L']*100
 pwinratiocorr = pd.DataFrame(p.corr()['WIN%']).sort_values(by = 'WIN%', ascending = 0)
 def plotPlayersWinper(x):
@@ -400,3 +447,149 @@ def rosterOrderbyAwayImpact(team):
         except:
             continue
     return list(pd.DataFrame(a).sort_values(by = 1, ascending = 0)[0])
+
+def plotOverallPlayerWFactors(size = 3):
+    a = overallPcorr('W/L')['corrTable'][:size]
+    print a
+    a = list(a['STATVAR'])
+    a.append('W/L')
+    g = sns.PairGrid(playergamelogs.sort_values(by = 'W/L', ascending=0), hue = 'W/L', palette='Set2',\
+                     hue_kws={'cmap':['Greens', 'Oranges']})
+    g.map_upper(plt.scatter)
+    g.map_diag(plt.hist)
+    g.map_lower(sns.kdeplot)
+    g.add_legend()
+    g.fig.suptitle(x, fontsize=20)
+
+def plotOverallPlayerLFactors(size = 3):
+    a = overallPcorr('W/L')['corrTable'][-size:]
+    print a
+    a = list(a['STATVAR'])
+    a.append('W/L')
+    g = sns.PairGrid(playergamelogs.sort_values(by = 'W/L', ascending=0), hue = 'W/L', palette='Set2',\
+                     hue_kws={'cmap':['Greens', 'Oranges']})
+    g.map_upper(plt.scatter)
+    g.map_diag(plt.hist)
+    g.map_lower(sns.kdeplot)
+    g.add_legend()
+    g.fig.suptitle(x, fontsize=20)
+
+def plotOverallPlayerHomeFactors(size = 3):
+    a = overallPcorr('ARENA')['corrTable'][:3]
+    print a
+    a = list(a['STATVAR'])
+    a.append('ARENA')
+    g = sns.PairGrid(playergamelogs.sort_values(by = 'ARENA', ascending=0), hue = 'ARENA', palette='Set2',\
+                     hue_kws={'cmap':['Greens', 'Oranges']})
+    g.map_upper(plt.scatter)
+    g.map_diag(plt.hist)
+    g.map_lower(sns.kdeplot)
+    g.add_legend()
+    g.fig.suptitle(x, fontsize=20)
+
+def plotOverallPlayerAwayFactors(size = 3):
+    a = overallPcorr('ARENA')['corrTable'][-3:]
+    print a
+    a = list(a['STATVAR'])
+    a.append('ARENA')
+    g = sns.PairGrid(playergamelogs.sort_values(by = 'ARENA', ascending=0), hue = 'ARENA', palette='Set2',\
+                     hue_kws={'cmap':['Greens', 'Oranges']})
+    g.map_upper(plt.scatter)
+    g.map_diag(plt.hist)
+    g.map_lower(sns.kdeplot)
+    g.add_legend()
+    g.fig.suptitle(x, fontsize=20)
+
+def plotOverallPlayerWFactBox(i = 1):
+    a = overallPcorr('W/L')['corrTable'][i-1:i]
+    print a
+    a = list(a['STATVAR'])
+    a.append('W/L')
+    a.append('ARENA')
+    b = playergamelogs.sort_values(by = 'W/L', ascending=0).sort_values(by = 'ARENA', ascending=0)
+    sns.boxplot(x='W/L', y=a[0], hue='ARENA', data=b, palette='PRGn')
+
+def plotOverallPlayerLFactBox(i = 1):
+    if i == 1:
+        a = overallPcorr('W/L')['corrTable'][-i:]
+    else: 
+        a = overallPcorr('W/L')['corrTable'][-i:-(i-1)]
+    print a
+    a = list(a['STATVAR'])
+    a.append('W/L')
+    a.append('ARENA')
+    b = playergamelogs.sort_values(by = 'W/L', ascending=0).sort_values(by = 'ARENA', ascending=0)
+    sns.boxplot(x='W/L', y=a[0], hue='ARENA', data=b, palette='PRGn')
+    
+def plotOverallTeamWFactors(size = 3):
+    a = overallPcorr('W/L')['corrTable'][:size]
+    print a
+    a = list(a['STATVAR'])
+    a.append('W/L')
+    g = sns.PairGrid(teamgamelogs.sort_values(by = 'W/L', ascending=0), hue = 'W/L', palette='Set2',\
+                     hue_kws={'cmap':['Greens', 'Oranges']})
+    g.map_upper(plt.scatter)
+    g.map_diag(plt.hist)
+    g.map_lower(sns.kdeplot)
+    g.add_legend()
+    g.fig.suptitle(x, fontsize=20)
+
+def plotOverallTeamLFactors(x, size = 3):
+    a = overallPcorr('W/L')['corrTable'][-size:]
+    print a
+    a = list(a['STATVAR'])
+    a.append('W/L')
+    g = sns.PairGrid(teamgamelogs.sort_values(by = 'W/L', ascending=0), hue = 'W/L', palette='Set2',\
+                     hue_kws={'cmap':['Greens', 'Oranges']})
+    g.map_upper(plt.scatter)
+    g.map_diag(plt.hist)
+    g.map_lower(sns.kdeplot)
+    g.add_legend()
+    g.fig.suptitle(x, fontsize=20)
+
+def plotOverallTeamHomeFactors(size = 3):
+    a = overallPcorr('ARENA')['corrTable'][:3]
+    print a
+    a = list(a['STATVAR'])
+    a.append('ARENA')
+    g = sns.PairGrid(teamgamelogs.sort_values(by = 'ARENA', ascending=0), hue = 'ARENA', palette='Set2',\
+                     hue_kws={'cmap':['Greens', 'Oranges']})
+    g.map_upper(plt.scatter)
+    g.map_diag(plt.hist)
+    g.map_lower(sns.kdeplot)
+    g.add_legend()
+    g.fig.suptitle(x, fontsize=20)
+
+def plotOverallTeamAwayFactors(size = 3):
+    a = overallPcorr('ARENA')['corrTable'][-3:]
+    print a
+    a = list(a['STATVAR'])
+    a.append('ARENA')
+    g = sns.PairGrid(teamgamelogs.sort_values(by = 'ARENA', ascending=0), hue = 'ARENA', palette='Set2',\
+                     hue_kws={'cmap':['Greens', 'Oranges']})
+    g.map_upper(plt.scatter)
+    g.map_diag(plt.hist)
+    g.map_lower(sns.kdeplot)
+    g.add_legend()
+    g.fig.suptitle(x, fontsize=20)
+
+def plotOverallTeamWFactBox(i = 1):
+    a = overallPcorr('W/L')['corrTable'][i-1:i]
+    print a
+    a = list(a['STATVAR'])
+    a.append('W/L')
+    a.append('ARENA')
+    b = teamgamelogs.sort_values(by = 'W/L', ascending=0).sort_values(by = 'ARENA', ascending=0)
+    sns.boxplot(x='W/L', y=a[0], hue='ARENA', data=b, palette='PRGn')
+
+def plotOverallTeamLFactBox(i = 1):
+    if i == 1:
+        a = overallPcorr('W/L')['corrTable'][-i:]
+    else: 
+        a = overallPcorr('W/L')['corrTable'][-i:-(i-1)]
+    print a
+    a = list(a['STATVAR'])
+    a.append('W/L')
+    a.append('ARENA')
+    b = teamgamelogs.sort_values(by = 'W/L', ascending=0).sort_values(by = 'ARENA', ascending=0)
+    sns.boxplot(x='W/L', y=a[0], hue='ARENA', data=b, palette='PRGn')
